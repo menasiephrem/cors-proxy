@@ -28,7 +28,7 @@ const redirect = (url, res, req) => {
         headers: { ...req.headers, host: new URL(url).host }
     })
         .then(response => {
-            // if its pdf file send the pdf
+            // if its a file send the file back
             for (let key in response.headers) {
                 res.header(key, response.headers[key])
             }
