@@ -44,13 +44,13 @@ const redirect = (url, res, req) => {
 }
 
 app.get('/', (req, res) => {
-    const url = Object.keys(req.query)[0]
+    const url = req.url?.replace("/?", "")
     console.log(`$:URL => ${url}`);
     redirect(url, res, req)
 })
 
 app.get('/shorten', (req, res) => {
-    const url = Object.keys(req.query)[0]
+    const url = req.url?.replace("shorten/?", "")
     // random 4 alphanumeric key
     const keyName = Math.random().toString(36).substring(2, 6)
     store(keyName, url)
