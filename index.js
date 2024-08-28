@@ -8,8 +8,11 @@ const store = keyFileStorage('./store')
 
 const app = express();
 
+
+
 app.use(cors())
 
+app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
 app.use((req, res, next) => {
@@ -22,31 +25,57 @@ app.use((req, res, next) => {
     next();
 });
 
-const redirect = (url, res, req) => {
-    axios.get(url, {
-        responseType: "stream",
-        headers: { ...req.headers, host: new URL(url).host }
+const redirect = (url, method, res, req) => {
+    let requestData = req?.body;
+    const headers = {};
+
+    // Reconstruct headers while keeping case sensitivity
+    const rawHeaders = req?.rawHeaders ?? [];
+    for (let i = 0; i < rawHeaders.length; i += 2) {
+        headers[rawHeaders[i]] = rawHeaders[i + 1];
+    }
+
+    // Determine the content type and format the data accordingly
+    if (headers['Content-Type'] === 'application/x-www-form-urlencoded') {
+        // Convert the body to URL-encoded format
+        const params = new URLSearchParams();
+        Object.keys(req.body).forEach(key => {
+            params.append(key, req.body[key]);
+        });
+        requestData = params.toString();
+    }
+
+    // Set Content-Type explicitly if it's not automatically detected
+    if (!headers['Content-Type'] && typeof req?.body === 'object') {
+        headers['Content-Type'] = 'application/json';
+    }
+
+    axios(url, {
+        method,
+        headers: { ...headers, host: new URL(url).host },
+        data: requestData,
+        responseType: 'stream',
     })
         .then(response => {
-            // if its a file send the file back
-            for (let key in response.headers) {
-                res.header(key, response.headers[key])
-            }
-            res.writeHead(response.status, response.headers);
-            response.data.pipe(res)
+            // Forward response headers
+            Object.keys(response.headers).forEach(key => {
+                res.setHeader(key, response.headers[key]);
+            });
+
+            res.status(response.status);
+            response.data.pipe(res);
         })
         .catch(error => {
-            res
-                .status(500)
-                .send({ error: error.message });
-        }
-        )
-}
+            console.error('Error:', error.message);
+            res.status(error.response?.status ?? 500);
+            error.response?.data.pipe(res);
+        });
+};
 
-app.get('/', (req, res) => {
-    const url = req.url?.replace("/?", "")
+app.all('/', (req, res) => {
+    const url = req.headers['target-url']
     console.log(`$:URL => ${url}`);
-    redirect(url, res, req)
+    redirect(url, req.method.toLowerCase(), res, req)
 })
 
 app.get('/shorten', (req, res) => {
@@ -61,7 +90,8 @@ app.get('/shorten', (req, res) => {
 app.get('/:key', async (req, res) => {
     const key = req.params.key
     const url = await store[key]
-    redirect(url, res)
+    res.status(301).redirect
+    // redirect(url, res)
 })
 
 app.listen(1234, () => {
