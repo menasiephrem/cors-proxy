@@ -53,7 +53,7 @@ const redirect = (url, method, res, req) => {
     axios(url, {
         method,
         headers: { ...headers, host: new URL(url).host },
-        data: requestData,
+        data: method === 'get' ? null : requestData,
         responseType: 'stream',
     })
         .then(response => {
