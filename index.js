@@ -94,6 +94,26 @@ app.get('/:key', async (req, res) => {
     // redirect(url, res)
 })
 
+app.post('/store-css', (req, res) => {
+    const { key, css } = req.body;
+    if (!key || !css) {
+        return res.status(400).send('Key and CSS content are required');
+    }
+    store(key, css);
+    res.send({ message: 'CSS stored successfully' });
+});
+
+app.get('/get-css/:key', async (req, res) => {
+    const key = req.params.key;
+    const css = await store[key];
+    if (!css) {
+        return res.status(404).send('CSS not found');
+    }
+    res.setHeader('Content-Type', 'text/css');
+    res.set('Cache-Control', 'no-store');
+    res.send(css);
+});
+
 app.listen(1234, () => {
     console.log('Server is running on port 1234');
 })
