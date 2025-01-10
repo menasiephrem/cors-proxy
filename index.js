@@ -3,12 +3,25 @@ import bodyParser from 'body-parser';
 import axios from 'axios'
 import { keyFileStorage } from 'key-file-storage'
 import cors from 'cors'
+import { v2 as cloudinary } from 'cloudinary';
+import multer from 'multer';
+import dotenv from 'dotenv'
 
+dotenv.config()
 const store = keyFileStorage('./store')
 
 const app = express();
 
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.API_KEY,
+    api_secret: process.env.API_SECRET,
+});
 
+const storage = new multer.memoryStorage();
+const upload = multer({
+    storage,
+});
 
 app.use(cors())
 
@@ -72,6 +85,14 @@ const redirect = (url, method, res, req) => {
         });
 };
 
+const handleUpload = async (file) => {
+    const res = await cloudinary.uploader.upload(file, {
+        resource_type: "auto",
+    });
+    return res;
+}
+
+
 app.all('/', (req, res) => {
     const url = req.headers['target-url']
     console.log(`$:URL => ${url}`);
@@ -113,6 +134,40 @@ app.get('/get-css/:key', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.send(css);
 });
+
+// json store and get
+
+app.post('/store-object', (req, res) => {
+    const { key, object } = req.body
+    if (!key || !object) {
+        return res.status(400).send('Key and Object content are required');
+    }
+    store.key(key, object)
+    res.json({ message: "Object stored successfully" })
+})
+
+app.get('/get-object/:key', async (req, res) => {
+    const key = req.params.key;
+    const object = await store[key];
+    if (!object) {
+        return res.status(404).send('Object not found');
+    }
+    res.send(object);
+});
+
+app.post('/upload-image', upload.single("file"), async (req, res) => {
+    try {
+        const b64 = Buffer.from(req.file.buffer).toString("base64");
+        let dataURI = "data:" + req.file.mimetype + ";base64," + b64;
+        const cldRes = await handleUpload(dataURI);
+        res.json(cldRes);
+    } catch (error) {
+        console.log(error);
+        res.send({
+            message: error.message,
+        });
+    }
+})
 
 app.listen(1234, () => {
     console.log('Server is running on port 1234');
