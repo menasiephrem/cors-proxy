@@ -142,7 +142,7 @@ app.post('/store-object', (req, res) => {
     if (!key || !object) {
         return res.status(400).send('Key and Object content are required');
     }
-    store.key(key, object)
+    store(key, object);
     res.json({ message: "Object stored successfully" })
 })
 
